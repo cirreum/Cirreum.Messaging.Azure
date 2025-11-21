@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>Cirreum.Messaging</RootNamespace>
+		<Description>Distributed messaging using Azure ServiceBus.</Description>
+		<PackageTags>messaging,servicebus,azure</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Azure.Identity" Version="1.17.1" />
+		<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
+		<PackageReference Include="Cirreum.Messaging" Version="1.0.102" />
+		<PackageReference Include="Cirreum.ServiceProvider" Version="1.0.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Azure.Core" />
+		<Using Include="Azure.Identity" />
+		<Using Include="Azure.Messaging.ServiceBus" />
+		<Using Include="Cirreum" />
+		<Using Include="Cirreum.Messaging" />
+		<Using Include="Cirreum.Providers" />
+	</ItemGroup>
+	
+</Project>
