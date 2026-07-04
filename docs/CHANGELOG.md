@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-07-04
+
 ### Fixed
 
 - **Queue health-check error detail was always masked** — on a queue check failure outside Production, the health-check data was populated with the exception message and then immediately overwritten with the generic `"Failed"` marker (a missing early-return; the topic and subscription checks behaved correctly). Non-production environments now surface the actual error detail, matching the other check types. Found by the repo's first test suite (`tests/Cirreum.Messaging.Azure.Tests`, 27 tests), added alongside this release.
