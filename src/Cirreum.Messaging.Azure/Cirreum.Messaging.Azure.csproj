@@ -10,7 +10,7 @@
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
 		<PackageReference Include="Cirreum.Messaging" Version="1.0.108" />
-		<PackageReference Include="Cirreum.ServiceProvider" Version="1.0.19" />
+		<PackageReference Include="Cirreum.ServiceProvider" Version="1.0.21" />
 	</ItemGroup>
 
 	<!-- InternalsVisibleTo: Local Development Only -->
