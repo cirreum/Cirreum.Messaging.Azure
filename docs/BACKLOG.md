@@ -21,9 +21,9 @@ upgrade, a coordinated multi-repo rollout).
 
 ### Integration coverage via the Service Bus emulator
 
-**SemVer:** Unspecified
-**Trigger:** A broker-behavior bug that unit tests can't reproduce, or CI capacity for container-based tests.
-**Noted:** 2026-07-04
+**SemVer:** Unspecified  
+**Trigger:** A broker-behavior bug that unit tests can't reproduce, or CI capacity for container-based tests.  
+**Noted:** 2026-07-04  
 
 The unit suite (`tests/Cirreum.Messaging.Azure.Tests`, added 2026-07-04) covers
 message mapping, client caching, health checks, and DI composition — all
@@ -34,9 +34,9 @@ Azure Service Bus emulator
 
 ### Honor receiver tuning options (prefetch, lock renewal)
 
-**SemVer:** Major
-**Trigger:** `Cirreum.Messaging` extends `IMessagingClient.UseQueueReceiver` / `UseSubscription` with receiver tuning parameters.
-**Noted:** 2026-07-04
+**SemVer:** Major  
+**Trigger:** `Cirreum.Messaging` extends `IMessagingClient.UseQueueReceiver` / `UseSubscription` with receiver tuning parameters.  
+**Noted:** 2026-07-04  
 
 > SemVer is deliberately marked Major so this cross-repo item only surfaces at
 > major releases — the change itself is additive (Minor) at this layer, but it
