@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-F2F2F2?style=flat-square&labelColor=1F1F1F)](https://github.com/cirreum/Cirreum.Messaging.Azure/blob/main/LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-003D8F?style=flat-square&labelColor=1F1F1F)](https://dotnet.microsoft.com/)
 
-**Distributed messaging using Azure ServiceBus**
+**Azure Service Bus provider for the Cirreum Messaging track — implements the `IMessagingClient` broker abstractions.**
 
 ## Overview
 
@@ -28,40 +28,23 @@
 dotnet add package Cirreum.Messaging.Azure
 ```
 
-### Basic Usage
-
-```csharp
-// Add to your Program.cs or Startup.cs
-builder.AddAzureMessagingClient("default", connectionString);
-
-// Inject and use
-public class MessageService(IMessagingClient client)
-{
-    public async Task SendMessageAsync(string queueName, object message)
-    {
-        var queue = client.UseQueue(queueName);
-        var outbound = new OutboundMessage(message);
-        await queue.PublishMessageAsync(outbound);
-    }
-    
-    public async Task<InboundMessage?> ReceiveMessageAsync(string queueName)
-    {
-        var queue = client.UseQueue(queueName);
-        return await queue.ReceiveMessageAsync();
-    }
-}
-```
-
 ### Configuration-Based Registration
+
+Instances are configured under `Cirreum:Messaging:Providers:Azure` and auto-registered by the Cirreum runtime (`builder.AddMessaging()` from `Cirreum.Runtime.Messaging`, or `RegisterServiceProvider<AzureServiceBusRegistrar, ...>` directly). Each entry under `Instances` becomes a **keyed** `IMessagingClient` registration whose DI key is the instance key:
 
 ```json
 {
-  "Messaging": {
-    "Azure": {
-      "Instances": {
-        "primary": {
-          "ConnectionString": "Endpoint=sb://...",
-          "Name": "Primary Bus"
+  "Cirreum": {
+    "Messaging": {
+      "Providers": {
+        "Azure": {
+          "Tracing": true,
+          "Instances": {
+            "primary": {
+              "Name": "app-messaging-servicebus",
+              "HealthChecks": true
+            }
+          }
         }
       }
     }
@@ -69,16 +52,57 @@ public class MessageService(IMessagingClient client)
 }
 ```
 
+The connection is resolved from `Name` via `ConnectionStrings` (including Key Vault-backed configuration) first, falling back to an inline `ConnectionString` property on the instance. A fully qualified namespace value (e.g., `mybus.servicebus.windows.net`) connects with `DefaultAzureCredential` (managed identity) instead of a shared access key.
+
+### Manual Registration
+
+```csharp
+// Explicit connection string
+builder.AddAzureMessagingClient("primary", connectionString);
+
+// Or settings callback
+builder.AddAzureMessagingClient("primary", settings => {
+	settings.Name = "app-messaging-servicebus";
+	settings.HealthChecks = true;
+});
+```
+
+### Basic Usage
+
+Resolve the client by its instance key and use the queue/topic factories:
+
+```csharp
+public sealed class OrderQueueService(
+	[FromKeyedServices("primary")] IMessagingClient client) {
+
+	public Task SendAsync(Order order, CancellationToken ct) =>
+		client.UseQueueSender("orders.pending.v1")
+			.PublishMessageAsync(
+				OutboundMessage.AsJsonContent(order).WithSubject("orders.created"),
+				ct);
+
+	public async Task ProcessOneAsync(CancellationToken ct) {
+		var received = await client.UseQueueReceiver("orders.pending.v1")
+			.ReceiveMessageAsync(cancellationToken: ct);
+		var order = JsonSerializer.Deserialize<Order>(received.ContentString);
+		// ... handle ...
+		await received.CompleteMessageAsync(ct); // or Abandon / Defer / DeadLetter
+	}
+}
+```
+
+`UseQueue(name)` returns a combined sender/receiver when a service works both sides of one queue; `UseClient<ServiceBusClient>(...)` escape-hatches to the native SDK for operations outside the abstraction.
+
 ### Topics and Subscriptions
 
 ```csharp
-// Publishing to topic
-var topic = client.UseTopic("events");
-await topic.BroadcastMessageAsync(message);
+// Publishing to a topic
+await client.UseTopic("app.notifications.v1")
+	.BroadcastMessageAsync(OutboundMessage.AsJsonContent(notice).WithSubject("notice.raised"));
 
-// Subscribing to topic
-var subscription = client.UseSubscription("events", "processor");
-var message = await subscription.ReceiveMessageAsync();
+// Consuming from a subscription
+var received = await client.UseSubscription("app.notifications.v1", "api-head")
+	.ReceiveMessageAsync();
 ```
 
 ## Contribution Guidelines
