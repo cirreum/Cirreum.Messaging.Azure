@@ -5,48 +5,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 - **Build**: `dotnet build Cirreum.Messaging.Azure.slnx --configuration Release`
-- **Restore**: `dotnet restore Cirreum.Messaging.Azure.slnx`  
+- **Restore**: `dotnet restore Cirreum.Messaging.Azure.slnx`
 - **Pack**: `dotnet pack Cirreum.Messaging.Azure.slnx --configuration Release --output ./artifacts`
 - **Solution File**: `Cirreum.Messaging.Azure.slnx` (Visual Studio solution format)
 
 ## Project Structure
 
-This is a .NET 10.0 class library that provides Azure Service Bus messaging capabilities for the Cirreum framework:
+This is a .NET 10.0 class library — the Azure Service Bus provider for the Cirreum Messaging track (implements the `Cirreum.Messaging` broker abstractions):
 
-- `src/Cirreum.Messaging.Azure/` - Main library containing Azure Service Bus implementation
+- `src/Cirreum.Messaging.Azure/` - Main library containing the Azure Service Bus implementation
 - `build/` - MSBuild configuration files for packaging, versioning, and CI/CD
+- `docs/` - CHANGELOG (Keep a Changelog 1.1.0) and BACKLOG (deferred work)
 - `.github/workflows/publish.yml` - Automated NuGet publishing workflow
 
 ## Architecture Overview
 
 **Core Pattern**: Service Provider Registration with Auto-Discovery
-- Uses `AzureServiceBusRegistrar` that implements the Cirreum ServiceProvider pattern
-- Automatically registers messaging clients based on configuration sections
-- Supports both manual registration via extension methods and auto-discovery
+- `AzureServiceBusRegistrar` implements the Cirreum ServiceProvider pattern
+- Instances configured under `Cirreum:Messaging:Providers:Azure:Instances` are auto-registered as **keyed** `IMessagingClient` services (DI key = instance key)
+- Manual registration also available via the `AddAzureMessagingClient` extension overloads
+- Connection resolution order: `Name` via `ConnectionStrings` (incl. Key Vault-backed config) → inline `ConnectionString` → fully qualified namespace value connects with `DefaultAzureCredential`
 
 **Key Components**:
 - `AzureServiceBusClient`: Main client wrapper with caching for senders/receivers (30min sliding expiration)
-- `IMessagingClient` abstraction: Provides queue, topic, and subscription operations
-- Health checks: Comprehensive validation for queues, topics, and subscriptions with configurable caching
-- Configuration: `AzureServiceBusInstanceSettings` with connection strings and client options
+- `IMessagingClient` abstraction (from `Cirreum.Messaging`): queue, topic, and subscription factories plus `UseClient<T>` native escape hatch
+- Health checks: validation for queues, topics, and subscriptions with configurable caching
+- Configuration: `AzureServiceBusInstanceSettings` with connection settings and client options
 
 **Messaging Patterns**:
-- **Queues**: Point-to-point messaging via `IMessagingQueue`
-- **Topics/Subscriptions**: Pub/sub messaging via `IMessagingTopicSender`/`IMessagingSubscriptionReceiver`
-- **Message Types**: Unified `OutboundMessage` and `InboundMessage` abstractions
+- **Queues**: Point-to-point via `UseQueue` / `UseQueueSender` / `UseQueueReceiver`
+- **Topics/Subscriptions**: Pub/sub via `UseTopic` / `UseSubscription`
+- **Message model**: `OutboundMessage` on the send side; on the receive side the `AzureServiceBus*ReceivedMessage` / `*PeekedMessage` wrappers expose content, properties, and the broker ack model (`Complete` / `Abandon` / `Defer` / `DeadLetter` / `RenewLock`)
 
-**Caching Strategy**: 
+**Caching Strategy**:
 - Senders/receivers cached for 30 minutes with automatic disposal
 - Health check results cached (60s success, 30s failure) with jitter
 - Memory-efficient cleanup via post-eviction callbacks
 
 ## Dependencies
 
-Core dependencies managed in `.csproj`:
-- `Azure.Messaging.ServiceBus` (7.20.1) - Azure SDK
-- `Azure.Identity` (1.17.1) - Authentication
-- `Cirreum.Messaging` (1.0.102) - Core messaging abstractions  
-- `Cirreum.ServiceProvider` (1.0.2) - Service provider registration pattern
+Managed in `src/Cirreum.Messaging.Azure/Cirreum.Messaging.Azure.csproj` (see the csproj for current versions):
+
+- `Azure.Messaging.ServiceBus` - Azure SDK
+- `Azure.Identity` - Authentication (`DefaultAzureCredential` for namespace connections)
+- `Cirreum.Messaging` - Broker abstractions this package implements
+- `Cirreum.ServiceProvider` - Service provider registration pattern
 
 ## Code Conventions
 

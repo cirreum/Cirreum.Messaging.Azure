@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<RootNamespace>Cirreum.Messaging</RootNamespace>
-		<Description>Distributed messaging using Azure ServiceBus.</Description>
+		<Description>Azure Service Bus provider for the Cirreum Messaging track — implements the IMessagingClient broker abstractions for queues, topics, and subscriptions.</Description>
 		<PackageTags>messaging,servicebus,azure</PackageTags>
 	</PropertyGroup>
 

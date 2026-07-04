@@ -35,19 +35,19 @@ Instances are configured under `Cirreum:Messaging:Providers:Azure` and auto-regi
 ```json
 {
   "Cirreum": {
-    "Messaging": {
-      "Providers": {
-        "Azure": {
-          "Tracing": true,
-          "Instances": {
-            "primary": {
-              "Name": "app-messaging-servicebus",
-              "HealthChecks": true
-            }
-          }
-        }
-      }
-    }
+	"Messaging": {
+	  "Providers": {
+		"Azure": {
+		  "Tracing": true,
+		  "Instances": {
+			"primary": {
+			  "Name": "app-messaging-servicebus",
+			  "HealthChecks": true
+			}
+		  }
+		}
+	  }
+	}
   }
 }
 ```
