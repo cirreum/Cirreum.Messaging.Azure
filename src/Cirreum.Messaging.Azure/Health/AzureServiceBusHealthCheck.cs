@@ -161,6 +161,7 @@ internal class AzureServiceBusHealthCheck(
 			exceptions.Add(ex);
 			if (!isProduction) {
 				data[$"queue_{options.QueueName}_error"] = ex.Message;
+				return;
 			}
 			data[$"queue_{options.QueueName}_error"] = "Failed";
 		}

@@ -13,6 +13,11 @@
 		<PackageReference Include="Cirreum.ServiceProvider" Version="1.0.19" />
 	</ItemGroup>
 
+	<!-- InternalsVisibleTo: Local Development Only -->
+	<ItemGroup Label="InternalsVisibleTo" Condition="'$(IsLocalBuild)' == 'true'">
+		<InternalsVisibleTo Include="Cirreum.Messaging.Azure.Tests" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<Using Include="Azure.Core" />
 		<Using Include="Azure.Identity" />

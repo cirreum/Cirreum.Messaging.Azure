@@ -7,13 +7,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Build**: `dotnet build Cirreum.Messaging.Azure.slnx --configuration Release`
 - **Restore**: `dotnet restore Cirreum.Messaging.Azure.slnx`
 - **Pack**: `dotnet pack Cirreum.Messaging.Azure.slnx --configuration Release --output ./artifacts`
-- **Solution File**: `Cirreum.Messaging.Azure.slnx` (Visual Studio solution format)
+- **Test**: `dotnet test tests/Cirreum.Messaging.Azure.Tests.slnx --configuration Release`
+- **Solution File**: `Cirreum.Messaging.Azure.slnx` (Visual Studio solution format; tests live in their own `tests/Cirreum.Messaging.Azure.Tests.slnx`, never in the main slnx)
 
 ## Project Structure
 
 This is a .NET 10.0 class library — the Azure Service Bus provider for the Cirreum Messaging track (implements the `Cirreum.Messaging` broker abstractions):
 
 - `src/Cirreum.Messaging.Azure/` - Main library containing the Azure Service Bus implementation
+- `tests/Cirreum.Messaging.Azure.Tests/` - Unit tests (mapping, caching, health checks, DI composition; broker-free)
 - `build/` - MSBuild configuration files for packaging, versioning, and CI/CD
 - `docs/` - CHANGELOG (Keep a Changelog 1.1.0) and BACKLOG (deferred work)
 - `.github/workflows/publish.yml` - Automated NuGet publishing workflow

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <File Path="../src/Directory.Build.props" />
+    <Project Path="../src/Cirreum.Messaging.Azure/Cirreum.Messaging.Azure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="Directory.Build.props" />
+    <Project Path="Cirreum.Messaging.Azure.Tests/Cirreum.Messaging.Azure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -19,26 +19,29 @@ upgrade, a coordinated multi-repo rollout).
 
 ## Queued
 
-### Add a test suite
+### Integration coverage via the Service Bus emulator
 
 **SemVer:** Unspecified
-**Trigger:** Next substantive (non-propagation) change to this repo, or a decision on the test harness shape.
+**Trigger:** A broker-behavior bug that unit tests can't reproduce, or CI capacity for container-based tests.
 **Noted:** 2026-07-04
 
-The repo has no `tests/` folder. Pure unit coverage is possible for the
-registrar/configuration/caching layers (settings binding, keyed registration,
-sender/receiver cache expiration), but meaningful coverage of the client
-surface needs a broker — evaluate the Azure Service Bus emulator
-(`mcr.microsoft.com/azure-messaging/servicebus-emulator`) as an integration
-harness versus mocking `ServiceBusClient` seams. Scaffold from
-`DevOps\templates\tests\` (dedicated `tests/Cirreum.Messaging.Azure.Tests.slnx`,
-never in the main slnx).
+The unit suite (`tests/Cirreum.Messaging.Azure.Tests`, added 2026-07-04) covers
+message mapping, client caching, health checks, and DI composition — all
+broker-free. End-to-end send/receive/ack coverage of the
+`AzureServiceBus*` sender/receiver wrappers needs a live broker; evaluate the
+Azure Service Bus emulator
+(`mcr.microsoft.com/azure-messaging/servicebus-emulator`) as the harness.
 
 ### Honor receiver tuning options (prefetch, lock renewal)
 
-**SemVer:** Minor
+**SemVer:** Major
 **Trigger:** `Cirreum.Messaging` extends `IMessagingClient.UseQueueReceiver` / `UseSubscription` with receiver tuning parameters.
 **Noted:** 2026-07-04
+
+> SemVer is deliberately marked Major so this cross-repo item only surfaces at
+> major releases — the change itself is additive (Minor) at this layer, but it
+> cannot start until the upstream contract moves, so surfacing it on every
+> patch/minor is noise.
 
 Mirror of the `Cirreum.Runtime.Messaging` backlog item: its
 `ReceiverOptions.PrefetchCount` / `MaxAutoLockRenewalDuration` settings are
