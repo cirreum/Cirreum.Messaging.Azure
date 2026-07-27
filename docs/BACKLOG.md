@@ -43,8 +43,14 @@ Azure Service Bus emulator
 > cannot start until the upstream contract moves, so surfacing it on every
 > patch/minor is noise.
 
-Mirror of the `Cirreum.Runtime.Messaging` backlog item: its
-`ReceiverOptions.PrefetchCount` / `MaxAutoLockRenewalDuration` settings are
-inert because the `IMessagingClient` factory methods take no tuning
-parameters. When the contract grows them, this package maps the values onto
-`ServiceBusReceiverOptions` / `ServiceBusProcessorOptions`.
+**Middle of a three-repo chain — do not start here.** The head is
+`Cirreum.Messaging` (Common), which owns the contract that has to move first;
+see its backlog item *"Grow the receiver-creation API with broker tuning
+options"*. The tail is `Cirreum.Runtime.Messaging` (Runtime Extensions), where
+the symptom is felt.
+
+`ReceiverOptions.PrefetchCount` / `MaxAutoLockRenewalDuration` are inert
+because the `IMessagingClient` factory methods take no tuning parameters. Once
+the contract grows them, this package maps the values onto
+`ServiceBusReceiverOptions` / `ServiceBusProcessorOptions` — additive here, and
+releasable as a Minor at that point.
