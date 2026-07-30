@@ -2,6 +2,7 @@
 
 using Cirreum.Messaging.Configuration;
 using Cirreum.Messaging.Health;
+using Cirreum.Providers.Configuration;
 using Cirreum.ServiceProvider.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,15 @@ internal static class ServiceBusRegistrationExtensions {
 		this IServiceCollection services,
 		string serviceKey,
 		AzureServiceBusInstanceSettings settings) {
+
+		// Mirrors the client construction below: an "endpoint=" connection string is key-based
+		// authentication, which a Credential block cannot apply to.
+		if ((settings.ConnectionString ?? "").Contains("endpoint=", StringComparison.OrdinalIgnoreCase) &&
+			settings.Credential is not null) {
+			throw new InvalidOperationException(
+				"A Credential block is configured but the connection value is a key-based connection string. " +
+				"Identity-based authentication requires the fully qualified namespace as the connection value.");
+		}
 
 		// Register Keyed Service Factory
 		services.AddKeyedSingleton<IMessagingClient>(
@@ -41,9 +51,40 @@ internal static class ServiceBusRegistrationExtensions {
 
 		return new AzureServiceBusClient(
 			useCredentials
-			? new ServiceBusClient(settings.ConnectionString, new DefaultAzureCredential(), settings.ClientOptions)
+			? new ServiceBusClient(settings.ConnectionString, settings.GetCredential(), settings.ClientOptions)
 			: new ServiceBusClient(settings.ConnectionString, settings.ClientOptions),
 			cache);
+
+	}
+
+	private static TokenCredential GetCredential(
+		this AzureServiceBusInstanceSettings settings) {
+
+		var tenantId = string.IsNullOrWhiteSpace(settings.Identifier) ? null : settings.Identifier;
+		var credential = settings.Credential ?? new CredentialSettings();
+		var identityId = string.IsNullOrWhiteSpace(credential.IdentityId) ? null : credential.IdentityId;
+
+		return credential.Mode switch {
+
+			CredentialMode.Default => new DefaultAzureCredential(new DefaultAzureCredentialOptions {
+				TenantId = tenantId,
+				ManagedIdentityClientId = identityId,
+			}),
+
+			CredentialMode.ManagedIdentity => new ManagedIdentityCredential(
+				identityId is null
+					? ManagedIdentityId.SystemAssigned
+					: ManagedIdentityId.FromUserAssignedClientId(identityId)),
+
+			CredentialMode.Developer => new ChainedTokenCredential(
+				new VisualStudioCredential(new VisualStudioCredentialOptions { TenantId = tenantId }),
+				new AzureCliCredential(new AzureCliCredentialOptions { TenantId = tenantId }),
+				new AzurePowerShellCredential(new AzurePowerShellCredentialOptions { TenantId = tenantId })),
+
+			_ => throw new InvalidOperationException(
+				$"CredentialMode '{credential.Mode}' is not supported by the Azure Service Bus provider."),
+
+		};
 
 	}
 
