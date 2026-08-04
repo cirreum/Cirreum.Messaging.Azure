@@ -16,6 +16,9 @@ internal sealed class AzureServiceBusSubscriptionReceiver(
 
 	public string Subscription => subscription;
 
+	// Test seam: exposes the underlying receiver so creation-time tuning is assertable.
+	internal ServiceBusReceiver Receiver => receiver;
+
 	// Peek
 
 	public async Task<IMessagingSubscriptionPeekedMessage> PeekMessageAsync(CancellationToken cancellationToken = default) {

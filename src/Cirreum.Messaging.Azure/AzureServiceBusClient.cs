@@ -20,6 +20,27 @@ internal sealed class AzureServiceBusClient(
 	private const string Subscription_Receiver_Prefix = "receiver_subscription_";
 	private readonly TimeSpan _senderReceiverTimeout = TimeSpan.FromMinutes(cacheTimeout);
 	private readonly ConcurrentDictionary<string, byte> _cacheKeys = [];
+
+	// Receiver tuning is creation-time-only, and receivers are cached by name — so the
+	// tuning recorded at a name's first request is that name's identity for the client's
+	// lifetime (deliberately surviving cache eviction), and later requests must agree
+	// rather than silently receiving an instance tuned differently than they asked.
+	private readonly ConcurrentDictionary<string, ReceiverTuning?> _receiverTunings = [];
+
+	private void EnsureConsistentTuning(string cacheKey, string display, ReceiverTuning? requested) {
+		var normalized = requested is { IsEmpty: true } ? null : requested;
+		var recorded = _receiverTunings.GetOrAdd(cacheKey, normalized);
+		if (!Equals(recorded, normalized)) {
+			throw new InvalidOperationException(
+				$"Receiver '{display}' was already requested with different tuning " +
+				$"(first: {Describe(recorded)}; now: {Describe(normalized)}). Receivers are " +
+				"cached by name and tuning applies at creation only, so every request for " +
+				"the same receiver must carry the same tuning.");
+		}
+	}
+
+	private static string Describe(ReceiverTuning? tuning) =>
+		tuning is null ? "none" : $"PrefetchCount={tuning.PrefetchCount?.ToString() ?? "broker default"}";
 	private T GetOrCreateCachedClient<T>(string cacheKey, Func<T> factory) where T : IAsyncDisposable {
 		_cacheKeys.TryAdd(cacheKey, 0);
 		return cache.GetOrCreate(cacheKey, entry => {
@@ -71,13 +92,31 @@ internal sealed class AzureServiceBusClient(
 		return new AzureServiceBusQueueSender(queue, sender);
 	}
 	/// <inheritdoc/>
-	public IMessagingQueueReceiver UseQueueReceiver(string queue) {
+	public IMessagingQueueReceiver UseQueueReceiver(string queue) =>
+		this.UseQueueReceiverCore(queue, tuning: null);
+
+	/// <inheritdoc/>
+	public IMessagingQueueReceiver UseQueueReceiver(string queue, ReceiverTuning tuning) {
+		ArgumentNullException.ThrowIfNull(tuning);
+		return this.UseQueueReceiverCore(queue, tuning);
+	}
+
+	private IMessagingQueueReceiver UseQueueReceiverCore(string queue, ReceiverTuning? tuning) {
 		ArgumentException.ThrowIfNullOrEmpty(queue);
+		var cacheKey = Queue_Receiver_Prefix + queue;
+		this.EnsureConsistentTuning(cacheKey, $"queue:{queue}", tuning);
 		var receiver = this.GetOrCreateCachedClient(
-			Queue_Receiver_Prefix + queue,
-			() => client.CreateReceiver(queue));
+			cacheKey,
+			() => CreateReceiverOptions(tuning) is { } options
+				? client.CreateReceiver(queue, options)
+				: client.CreateReceiver(queue));
 		return new AzureServiceBusQueueReceiver(queue, receiver);
 	}
+
+	private static ServiceBusReceiverOptions? CreateReceiverOptions(ReceiverTuning? tuning) =>
+		tuning?.PrefetchCount is { } prefetch
+			? new ServiceBusReceiverOptions { PrefetchCount = prefetch }
+			: null;
 	/// <inheritdoc/>
 	public IMessagingTopicSender UseTopic(string topic) {
 		ArgumentException.ThrowIfNullOrEmpty(topic);
@@ -87,12 +126,25 @@ internal sealed class AzureServiceBusClient(
 		return new AzureServiceBusTopicSender(topic, sender);
 	}
 	/// <inheritdoc/>
-	public IMessagingSubscriptionReceiver UseSubscription(string topic, string subscription) {
+	public IMessagingSubscriptionReceiver UseSubscription(string topic, string subscription) =>
+		this.UseSubscriptionCore(topic, subscription, tuning: null);
+
+	/// <inheritdoc/>
+	public IMessagingSubscriptionReceiver UseSubscription(string topic, string subscription, ReceiverTuning tuning) {
+		ArgumentNullException.ThrowIfNull(tuning);
+		return this.UseSubscriptionCore(topic, subscription, tuning);
+	}
+
+	private IMessagingSubscriptionReceiver UseSubscriptionCore(string topic, string subscription, ReceiverTuning? tuning) {
 		ArgumentException.ThrowIfNullOrEmpty(topic);
 		ArgumentException.ThrowIfNullOrEmpty(subscription);
+		var cacheKey = $"{Subscription_Receiver_Prefix}{topic}_{subscription}";
+		this.EnsureConsistentTuning(cacheKey, $"subscription:{topic}/{subscription}", tuning);
 		var receiver = this.GetOrCreateCachedClient(
-			$"{Subscription_Receiver_Prefix}{topic}_{subscription}",
-			() => client.CreateReceiver(topic, subscription));
+			cacheKey,
+			() => CreateReceiverOptions(tuning) is { } options
+				? client.CreateReceiver(topic, subscription, options)
+				: client.CreateReceiver(topic, subscription));
 		return new AzureServiceBusSubscriptionReceiver(topic, subscription, receiver);
 	}
 

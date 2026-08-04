@@ -32,25 +32,3 @@ broker-free. End-to-end send/receive/ack coverage of the
 Azure Service Bus emulator
 (`mcr.microsoft.com/azure-messaging/servicebus-emulator`) as the harness.
 
-### Honor receiver tuning options (prefetch, lock renewal)
-
-**SemVer:** Major  
-**Trigger:** `Cirreum.Messaging` extends `IMessagingClient.UseQueueReceiver` / `UseSubscription` with receiver tuning parameters.  
-**Noted:** 2026-07-04  
-
-> SemVer is deliberately marked Major so this cross-repo item only surfaces at
-> major releases — the change itself is additive (Minor) at this layer, but it
-> cannot start until the upstream contract moves, so surfacing it on every
-> patch/minor is noise.
-
-**Middle of a three-repo chain — do not start here.** The head is
-`Cirreum.Messaging` (Common), which owns the contract that has to move first;
-see its backlog item *"Grow the receiver-creation API with broker tuning
-options"*. The tail is `Cirreum.Runtime.Messaging` (Runtime Extensions), where
-the symptom is felt.
-
-`ReceiverOptions.PrefetchCount` / `MaxAutoLockRenewalDuration` are inert
-because the `IMessagingClient` factory methods take no tuning parameters. Once
-the contract grows them, this package maps the values onto
-`ServiceBusReceiverOptions` / `ServiceBusProcessorOptions` — additive here, and
-releasable as a Minor at that point.

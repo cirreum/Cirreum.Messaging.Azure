@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-04
+
+### Added
+
+- **Receiver tuning reaches Service Bus.** The client implements the tuned
+  `UseQueueReceiver(string, ReceiverTuning)` / `UseSubscription(string, string, ReceiverTuning)`
+  overloads from `Cirreum.Messaging` 1.1.1, mapping `PrefetchCount` onto
+  `ServiceBusReceiverOptions` at receiver creation. Receivers are cached by name, so the
+  tuning recorded at a name's first request becomes that name's identity: a later request for
+  the same receiver with *different* tuning throws instead of silently returning an instance
+  tuned differently than asked. (From the backlog; middle rung of the three-repo
+  receiver-tuning chain — `Cirreum.Runtime.Messaging` flows the configured values through in
+  its own release.)
+
+### Updated
+
+- Re-pinned `Cirreum.Messaging` `1.1.0` → `1.1.1` (`ReceiverTuning` is creation-time
+  broker options only).
+
 ## [1.1.0] - 2026-07-29
 
 ### Added
