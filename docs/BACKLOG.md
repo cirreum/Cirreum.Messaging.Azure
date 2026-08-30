@@ -32,3 +32,12 @@ broker-free. End-to-end send/receive/ack coverage of the
 Azure Service Bus emulator
 (`mcr.microsoft.com/azure-messaging/servicebus-emulator`) as the harness.
 
+**Strengthened by 2.0.0 (2026-08-29).** The property-ownership split maps one wire dictionary in
+both directions: `ApplicationProperties` and `SystemProperties` are merged on send and split back
+apart on receive by the reserved `cirreum.` prefix. The unit suite proves that against
+`ServiceBusModelFactory`, which is a fake — it constructs the received message the mapping code
+then reads. What it cannot show is whether a real AMQP round trip preserves the prefix in the key
+and returns the value as a `string`, which is the assumption the distributed layer's self-echo skip
+now rests on. That is the first behaviour in this package where the fake and the broker could
+diverge without any test noticing.
+
