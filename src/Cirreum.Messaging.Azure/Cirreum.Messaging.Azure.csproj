@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<RootNamespace>Cirreum.Messaging</RootNamespace>
@@ -9,7 +9,7 @@
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
-		<PackageReference Include="Cirreum.Messaging" Version="1.1.1" />
+		<PackageReference Include="Cirreum.Messaging" Version="2.0.0" />
 		<PackageReference Include="Cirreum.ServiceProvider" Version="1.1.3" />
 	</ItemGroup>
 

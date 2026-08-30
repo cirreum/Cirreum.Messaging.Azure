@@ -1,4 +1,4 @@
-﻿namespace Cirreum.Messaging;
+namespace Cirreum.Messaging;
 
 using System;
 using System.Collections.Generic;
@@ -18,8 +18,8 @@ internal sealed class AzureServiceBusQueue(
 	public Task PublishMessageAsync(OutboundMessage message, CancellationToken cancellationToken = default) {
 		return sender.PublishMessageAsync(message, cancellationToken);
 	}
-	public Task PublishMessagesAsync(IEnumerable<OutboundMessage> messages, IDictionary<string, object>? commonProperties = null, CancellationToken cancellationToken = default) {
-		return sender.PublishMessagesAsync(messages, commonProperties, cancellationToken);
+	public Task PublishMessagesAsync(IEnumerable<OutboundMessage> messages, IDictionary<string, object>? commonApplicationProperties = null, CancellationToken cancellationToken = default) {
+		return sender.PublishMessagesAsync(messages, commonApplicationProperties, cancellationToken);
 	}
 
 

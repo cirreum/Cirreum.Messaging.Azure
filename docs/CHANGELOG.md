@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **Tracks the property-ownership split in Cirreum.Messaging 2.0.0.** `Properties` becomes
+  `ApplicationProperties`, and `SystemProperties` is implemented. Service Bus exposes one
+  application-property dictionary, so both bags travel in it and are split back out on receive by
+  the reserved `cirreum.` prefix — which also keeps system properties addressable by broker-side
+  subscription filters. A system value is read through `ToString()` rather than a type test, so a
+  representation other than `string` cannot produce a silent miss.
+
+- **Application properties are no longer filtered.** A property whose key matched a first-class
+  Service Bus field name — `MessageId`, `CorrelationId`, `ContentType`, `Subject`, `TimeToLive`,
+  `ReplyTo` — was silently discarded, with no exception and no log. Application properties occupy a
+  namespace separate from those fields on the wire, so the collision being avoided did not exist;
+  the filter removed data to prevent a non-problem. Those properties now travel, and `StandardProps`
+  is removed. A property written under a reserved key is not forwarded from the application bag.
+
+  See [MIGRATION-v2](MIGRATION-v2.md).
+
+### Fixed
+
+- **A batch send no longer skips common properties for a message that carries none of its own.**
+  `ToAzureMessages` tested `!message.Properties?.ContainsKey(key) == true`, which evaluates to
+  `false` when the bag is absent — so common properties were dropped in exactly the case where
+  nothing could conflict with them. The parameter is renamed to `commonApplicationProperties`.
+
+
 ## [1.2.3] - 2026-08-25
 
 ### Updated

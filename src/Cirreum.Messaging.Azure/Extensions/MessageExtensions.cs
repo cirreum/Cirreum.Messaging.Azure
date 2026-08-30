@@ -1,15 +1,6 @@
-﻿namespace Cirreum.Messaging.Extensions;
+namespace Cirreum.Messaging.Extensions;
 
 internal static class MessageExtensions {
-
-	public static string[] StandardProps = [
-		nameof(ServiceBusMessage.MessageId),    // maps to OutboundMessage.Id
-		nameof(ServiceBusMessage.CorrelationId),
-		nameof(ServiceBusMessage.ContentType),
-		nameof(ServiceBusMessage.Subject),
-		nameof(ServiceBusMessage.TimeToLive),
-		nameof(ServiceBusMessage.ReplyTo)
-	];
 
 	private static void SetStringPropertyIfExists(string? directValue, IDictionary<string, object> providerProps, string propertyName, Action<string> setter) {
 		if (!string.IsNullOrWhiteSpace(directValue)) {
@@ -51,13 +42,22 @@ internal static class MessageExtensions {
 			value => sbm.Subject = value);
 
 
-		// Add application properties
-		if (message.Properties != null) {
-			foreach (var prop in message.Properties.Where(p =>
-				!StandardProps.Contains(p.Key) &&
-				p.Value != null)) {
-				sbm.ApplicationProperties.Add(prop.Key, prop.Value);
+		// Application properties travel as supplied. A key colliding with a first-class Service Bus
+		// field is NOT dropped: application properties live in their own namespace on the wire, so
+		// there is nothing to collide with. Two entries do not travel — a null value, which has no
+		// AMQP mapping worth guessing at, and a key in the reserved system-property space, which is
+		// not the application's to write.
+		foreach (var prop in message.ApplicationProperties) {
+			if (prop.Value is null || SystemProperty.IsReserved(prop.Key)) {
+				continue;
 			}
+			sbm.ApplicationProperties[prop.Key] = prop.Value;
+		}
+
+		// System properties share the same wire dictionary. The reserved prefix is what splits them
+		// back out on receive, and what keeps them addressable by broker-side subscription filters.
+		foreach (var prop in message.SystemProperties) {
+			sbm.ApplicationProperties[prop.Key] = prop.Value;
 		}
 
 		// Optional properties coming from the message.ProviderProperties
@@ -88,19 +88,22 @@ internal static class MessageExtensions {
 
 	public static IEnumerable<ServiceBusMessage> ToAzureMessages(
 		this IEnumerable<OutboundMessage> messages,
-		IDictionary<string, object>? commonProperties = null) {
+		IDictionary<string, object>? commonApplicationProperties = null) {
 
 		foreach (var message in messages) {
 
 			// Use existing conversion for standard + message-specific props
 			var sbm = message.ToAzureMessage();
 
-			// Add common properties if they don't conflict with message-specific ones
-			if (commonProperties != null) {
-				foreach (var prop in commonProperties.Where(p =>
-					p.Value != null &&
-					!message.Properties?.ContainsKey(p.Key) == true)) {
-					sbm.ApplicationProperties.Add(prop.Key, prop.Value);
+			// Common properties fill in where the message did not set the key itself.
+			if (commonApplicationProperties is not null) {
+				foreach (var prop in commonApplicationProperties) {
+					if (prop.Value is null
+						|| SystemProperty.IsReserved(prop.Key)
+						|| message.ApplicationProperties.ContainsKey(prop.Key)) {
+						continue;
+					}
+					sbm.ApplicationProperties[prop.Key] = prop.Value;
 				}
 			}
 

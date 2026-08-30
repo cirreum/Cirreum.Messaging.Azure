@@ -1,4 +1,4 @@
-﻿namespace Cirreum.Messaging;
+namespace Cirreum.Messaging;
 
 using System.Collections.Immutable;
 using System.Text;
@@ -11,6 +11,8 @@ internal abstract class AzureServiceBusReceivedMessage(
 
 	private static readonly IReadOnlyDictionary<string, object> EmptyProperties = ImmutableDictionary<string, object>.Empty;
 	private IReadOnlyDictionary<string, object>? _providerProperties;
+	private IReadOnlyDictionary<string, object>? _applicationProperties;
+	private IReadOnlyDictionary<string, string>? _systemProperties;
 	private static readonly byte[] EmptyBytes = [];
 	private byte[]? _contentBytes;
 	private string? _contentStringCache;
@@ -31,7 +33,46 @@ internal abstract class AzureServiceBusReceivedMessage(
 	public DateTimeOffset EnqueuedTime => this.message.EnqueuedTime.UtcDateTime;
 	public DateTimeOffset ExpiresAt => this.message.ExpiresAt;
 	public int DeliveryCount => this.message.DeliveryCount;
-	public IReadOnlyDictionary<string, object> Properties => this.message.ApplicationProperties ?? EmptyProperties;
+	public IReadOnlyDictionary<string, object> ApplicationProperties =>
+		this._applicationProperties ??= this.SplitApplicationProperties();
+
+	public IReadOnlyDictionary<string, string> SystemProperties =>
+		this._systemProperties ??= this.SplitSystemProperties();
+
+	// Service Bus carries one application-property dictionary on the wire, so the two bags are
+	// split back out by the reserved prefix.
+	private IReadOnlyDictionary<string, object> SplitApplicationProperties() {
+		var wire = this.message?.ApplicationProperties;
+		if (wire is null or { Count: 0 }) {
+			return EmptyProperties;
+		}
+
+		var application = new Dictionary<string, object>(wire.Count);
+		foreach (var entry in wire) {
+			if (!SystemProperty.IsReserved(entry.Key)) {
+				application[entry.Key] = entry.Value;
+			}
+		}
+		return application;
+	}
+
+	// A system property's value is read through ToString rather than a type test: the contract is
+	// that the value is a string, and a broker that returns another representation of it must not
+	// be able to produce a silent miss.
+	private IReadOnlyDictionary<string, string> SplitSystemProperties() {
+		var wire = this.message?.ApplicationProperties;
+		if (wire is null or { Count: 0 }) {
+			return ImmutableDictionary<string, string>.Empty;
+		}
+
+		var system = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var entry in wire) {
+			if (SystemProperty.IsReserved(entry.Key)) {
+				system[entry.Key] = entry.Value?.ToString() ?? string.Empty;
+			}
+		}
+		return system;
+	}
 	public IReadOnlyDictionary<string, object> ProviderProperties => this._providerProperties ??= this.InitializeProviderProperties();
 	private IReadOnlyDictionary<string, object> InitializeProviderProperties() {
 		if (this.message is null) {

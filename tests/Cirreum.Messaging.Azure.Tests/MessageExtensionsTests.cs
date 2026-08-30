@@ -1,5 +1,6 @@
 namespace Cirreum.Messaging.Tests;
 
+using Azure.Messaging.ServiceBus;
 using Cirreum.Messaging.Extensions;
 
 public class MessageExtensionsTests {
@@ -51,17 +52,19 @@ public class MessageExtensionsTests {
 	}
 
 	[Fact]
-	public void ToAzureMessage_CustomPropertiesFlowToApplicationProperties_StandardNamesExcluded() {
+	public void ToAzureMessage_ApplicationPropertiesFlowEvenWhenTheKeyMatchesAServiceBusField() {
 		var message = new OutboundMessage("content");
-		message.Properties["tenant"] = "t1";
-		message.Properties["Subject"] = "should-not-appear";
-		message.Properties["MessageId"] = "should-not-appear";
+		message.ApplicationProperties["tenant"] = "t1";
+		message.ApplicationProperties["Subject"] = "should-not-appear";
+		message.ApplicationProperties["MessageId"] = "should-not-appear";
 
 		var sbm = message.ToAzureMessage();
 
+		// Application properties occupy their own namespace on the wire, so a key that happens to
+		// match a first-class Service Bus field name is carried rather than dropped.
 		sbm.ApplicationProperties.Should().ContainKey("tenant").WhoseValue.Should().Be("t1");
-		sbm.ApplicationProperties.Should().NotContainKey("Subject");
-		sbm.ApplicationProperties.Should().NotContainKey("MessageId");
+		sbm.ApplicationProperties["Subject"].Should().Be("should-not-appear");
+		sbm.ApplicationProperties["MessageId"].Should().Be("should-not-appear");
 	}
 
 	[Fact]
@@ -90,7 +93,7 @@ public class MessageExtensionsTests {
 	[Fact]
 	public void ToAzureMessages_AddsCommonPropertiesWithoutOverridingMessageSpecificOnes() {
 		var message = new OutboundMessage("content");
-		message.Properties["shared"] = "message-value";
+		message.ApplicationProperties["shared"] = "message-value";
 
 		var common = new Dictionary<string, object> {
 			["shared"] = "common-value",
@@ -103,4 +106,74 @@ public class MessageExtensionsTests {
 		sbm.ApplicationProperties["extra"].Should().Be("common-extra");
 	}
 
+	// Property ownership ———————————————————————————————————————
+
+	[Fact]
+	public void ToAzureMessage_SystemPropertiesFlowToApplicationProperties() {
+		var message = new OutboundMessage("payload")
+			.WithSystemProperty("cirreum.node", "node-1");
+
+		var sbm = message.ToAzureMessage();
+
+		sbm.ApplicationProperties["cirreum.node"].Should().Be("node-1");
+	}
+
+	[Fact]
+	public void ToAzureMessage_DoesNotForwardAReservedKeyFromTheApplicationBag() {
+		var message = new OutboundMessage("payload");
+		message.ApplicationProperties["cirreum.node"] = "forged";
+
+		var sbm = message.ToAzureMessage();
+
+		sbm.ApplicationProperties.Should().NotContainKey("cirreum.node");
+	}
+
+	[Fact]
+	public void ToAzureMessage_SystemPropertyWinsOverAForgedApplicationEntry() {
+		var message = new OutboundMessage("payload")
+			.WithSystemProperty("cirreum.node", "node-1");
+		message.ApplicationProperties["cirreum.node"] = "forged";
+
+		var sbm = message.ToAzureMessage();
+
+		sbm.ApplicationProperties["cirreum.node"].Should().Be("node-1");
+	}
+
+	[Fact]
+	public void ToAzureMessage_DoesNotTransmitANullApplicationValue() {
+		var message = new OutboundMessage("payload");
+		message.ApplicationProperties["absent"] = null!;
+
+		var sbm = message.ToAzureMessage();
+
+		sbm.ApplicationProperties.Should().NotContainKey("absent");
+	}
+
+	[Fact]
+	public void ReceivedMessage_SplitsTheWireBagByTheReservedPrefix() {
+		var received = ServiceBusModelFactory.ServiceBusReceivedMessage(
+			properties: new Dictionary<string, object> {
+				["tenant"] = "t1",
+				["cirreum.node"] = "node-1",
+			});
+
+		var message = new AzureServiceBusQueuePeekedMessage("orders", received);
+
+		message.ApplicationProperties.Should().ContainKey("tenant");
+		message.ApplicationProperties.Should().NotContainKey("cirreum.node");
+		message.SystemProperties.Should().ContainKey("cirreum.node").WhoseValue.Should().Be("node-1");
+		message.SystemProperties.Should().NotContainKey("tenant");
+	}
+
+	[Fact]
+	public void ReceivedMessage_ReadsASystemValueThatIsNotAString() {
+		// A broker whose header model returns something other than a string must not produce a
+		// silent miss; the value is read through ToString rather than a type test.
+		var received = ServiceBusModelFactory.ServiceBusReceivedMessage(
+			properties: new Dictionary<string, object> { ["cirreum.node"] = 42 });
+
+		var message = new AzureServiceBusQueuePeekedMessage("orders", received);
+
+		message.SystemProperties["cirreum.node"].Should().Be("42");
+	}
 }
