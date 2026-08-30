@@ -18,6 +18,7 @@
 - **Smart Caching**: Intelligent sender/receiver caching with sliding expiration and automatic cleanup
 - **Health Monitoring**: Comprehensive health checks for queues, topics, and subscriptions with configurable caching
 - **Clean Abstractions**: Unified messaging API that abstracts Azure Service Bus complexity
+- **Faithful Property Mapping**: Application and system properties travel verbatim, split back apart on receive, with nothing silently dropped
 - **Production Ready**: Built-in retry policies, connection management, and telemetry integration
 
 ## Quick Start
@@ -104,6 +105,32 @@ await client.UseTopic("app.notifications.v1")
 var received = await client.UseSubscription("app.notifications.v1", "api-head")
 	.ReceiveMessageAsync();
 ```
+
+## How properties map to Service Bus
+
+Service Bus exposes a single application-property dictionary on the wire, so this provider merges
+`ApplicationProperties` and `SystemProperties` onto it when sending and splits them back apart when
+receiving, keyed by the reserved `cirreum.` prefix. No key ever appears in both bags.
+
+Sharing the wire dictionary is deliberate rather than a compromise: a broker-side subscription
+filter on a system property such as `cirreum.identifier` keeps working exactly as a filter on an
+application property does.
+
+Three behaviours are worth knowing:
+
+- **Nothing is dropped for colliding with a message field.** A property keyed `Subject`,
+  `MessageId`, `CorrelationId`, `ContentType`, `TimeToLive` or `ReplyTo` travels as an application
+  property. Those live in a namespace separate from the first-class fields on the wire, so there is
+  no collision to prevent. (Releases before 2.0.0 discarded them silently.)
+- **A reserved key is not forwarded from the application bag.** Writing
+  `ApplicationProperties["cirreum.node"]` has no effect on the wire — the reserved space belongs to
+  the framework, and an application cannot forge a value in it.
+- **A system value is read back through `ToString()`, not a type test.** The contract is that it is
+  a string; reading it that way means a value the broker returns in another representation cannot
+  produce a silent miss.
+
+A null-valued application property is not transmitted — the one case where a property is dropped,
+and it is stated on the abstraction rather than left to this provider.
 
 ## Identity-Based Authentication
 
